@@ -6,6 +6,8 @@ const nodemailer = require('nodemailer');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 require('dotenv').config();
+const path = require('path');
+
 
 const app = express();
 app.use(cors());
@@ -24,6 +26,11 @@ const UserSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('User', UserSchema);
+
+
+// Serve static files (e.g., profile pictures)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 // JWT Middleware to Authenticate Users
 const authenticate = (req, res, next) => {
