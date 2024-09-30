@@ -25,6 +25,22 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', UserSchema);
 
+// JWT Middleware to Authenticate Users
+const authenticate = (req, res, next) => {
+  const token = req.headers['authorization']?.split(' ')[1]; // Bearer token
+  if (!token) {
+    return res.status(401).json({ message: 'Access denied. No token provided.' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(400).json({ message: 'Invalid token.' });
+  }
+};
+
 // Nodemailer transporter
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -39,8 +55,19 @@ app.post('/register', async (req, res) => {
   const { name, phone, email, password, profilePicture } = req.body;
 
   try {
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ name, phone, email, password: hashedPassword, profilePicture });
+    
+    // Create new user
+    const newUser = new User({
+      name,
+      phone,
+      email,
+      password: hashedPassword,
+      profilePicture
+    });
+
+    // Save user to database
     await newUser.save();
 
     // Send verification email
@@ -64,12 +91,15 @@ app.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
+    // Find user by email
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'User not found' });
 
+    // Compare provided password with stored hashed password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid password' });
 
+    // Generate JWT token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.status(200).json({ token });
   } catch (error) {
@@ -77,5 +107,19 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// Profile Route - Protected by JWT
+app.get('/profile', authenticate, async (req, res) => {
+  try {
+    // Find user by ID from decoded JWT token
+    const user = await User.findById(req.user.id).select('-password'); // Exclude password
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Start the server
 const PORT = process.env.PORT || 31000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
