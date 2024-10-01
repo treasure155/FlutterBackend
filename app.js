@@ -65,13 +65,16 @@ app.post('/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
+    // Set default profile picture if not provided
+    const userPicture = profilePicture || 'default.png';  // Use a default image if none is provided
+
     // Create new user
     const newUser = new User({
       name,
       phone,
       email,
       password: hashedPassword,
-      profilePicture
+      profilePicture: userPicture
     });
 
     // Save user to database
@@ -93,26 +96,6 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// Login API
-app.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    // Find user by email
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'User not found' });
-
-    // Compare provided password with stored hashed password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid password' });
-
-    // Generate JWT token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.status(200).json({ token });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // Profile Route - Protected by JWT
 app.get('/profile', authenticate, async (req, res) => {
