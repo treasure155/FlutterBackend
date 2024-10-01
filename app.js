@@ -7,6 +7,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 require('dotenv').config();
 const path = require('path');
+const fs = require('fs');
 
 
 const app = express();
@@ -57,7 +58,9 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Registration API
+
+
+// Registration API with profile picture decoding
 app.post('/register', async (req, res) => {
   const { name, phone, email, password, profilePicture } = req.body;
 
@@ -65,16 +68,22 @@ app.post('/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Set default profile picture if not provided
-    const userPicture = profilePicture || 'default.png';  // Use a default image if none is provided
+    let picturePath = 'uploads/default.png';  // Default picture path
 
-    // Create new user
+    // If profilePicture is provided (in base64 format)
+    if (profilePicture) {
+      const buffer = Buffer.from(profilePicture, 'base64');
+      picturePath = `uploads/${Date.now()}-profile.png`;
+      fs.writeFileSync(picturePath, buffer);
+    }
+
+    // Create new user with either provided or default profile picture
     const newUser = new User({
       name,
       phone,
       email,
       password: hashedPassword,
-      profilePicture: userPicture
+      profilePicture: picturePath
     });
 
     // Save user to database
